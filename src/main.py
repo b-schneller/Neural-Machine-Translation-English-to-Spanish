@@ -1,10 +1,10 @@
 from data_preprocessing import process_data
 from make_dataset import make_dataset
+from embedding_generator import Embedding_model
 import argparse
 import sys
 import numpy as np
 import os
-import tensorflow as tf
 
 def main(argv):
 
@@ -19,6 +19,13 @@ def main(argv):
                         help='Directory for downloaded language corpus')
     parser.add_argument('--processed_data_directory', default='../data/processed/',
                         help='Directory for processed data (embeddings, language_dicts, etc.')
+
+    parser.add_argument('--generate_embeddings', action='store_true', default=False,
+                        help='Turn on to generate word embeddings')
+    parser.add_argument('--embedding_size', type=int, default=150,
+                        help='Dimensionality of embedding vectors')
+    parser.add_argument('--vocabulary_size', type=int, default=50000,
+                        help='Number of unique words in vocabulary')
 
     parser.add_argument('--batch_size', type=int, default=50,
                         help='Batch size for training and evaluation.')
@@ -51,7 +58,13 @@ def main(argv):
         make_dataset(args)
 
     if args.process_data:
-        process_data(args)
+        data = process_data(args)
+
+    if args.generate_embeddings:
+        embed_model = Embedding_model(args, data)
+        data['source_embeddings'] = embed_model.train(data['X_in'])
+        data['target_embeddings'] = embed_model.train(data['y_in'])
+        np.savez('nmt_data', data)
 
 if __name__ == '__main__':
     main(sys.argv)
