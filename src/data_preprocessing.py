@@ -1,6 +1,5 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-import tensorflow as tf
 import numpy as np
 from collections import Counter
 import string
@@ -13,13 +12,13 @@ def process_data(args):
     source_sentences = read_sentences_from_file(source_fname)
     target_sentences = read_sentences_from_file(target_fname)
     source_clean, target_clean = clean_sentence_lists(source_sentences, target_sentences)
-    source_dictionary, _ = build_vocabulary(source_clean)
-    target_dictionary, _ = build_vocabulary(target_clean)
+    source_dictionary, source_vocabulary = build_vocabulary(source_clean)
+    target_dictionary, target_vocabulary = build_vocabulary(target_clean)
     bucket_dict = create_bucket_dict(source_clean, target_clean)
-    X_in, y_in, y_out = add_tokens_to_text(source_clean, target_clean, bucket_dict)
-    # build embeddings/ save embeddings
-    # for training model i need embeddings, bucket_dict,
-    # for evaluating/testing model i need embeddings, dictionaries,
+    data = add_tokens_to_text(source_clean, target_clean, bucket_dict, source_dictionary, target_dictionary)
+    data['source_vocabulary'] = source_vocabulary
+    data['target_vocabulary'] = target_vocabulary
+    return data
 
 
 def read_sentences_from_file(filename):
@@ -42,6 +41,7 @@ def clean_sentence_lists(source_list, target_list, max_len=64):
                 source_clean.append(source.lower())
                 target_clean.append(target.lower())
     return source_clean, target_clean
+
 
 def build_vocabulary(sentence_list, vocabulary_size=50000):
     tokens = [('<UNK>', None), ('<PAD>', None), ('<EOS>', None), ('<GO>', None)]
@@ -87,7 +87,8 @@ def add_tokens_to_text(source_list, target_list, bucket_dict, source_dictionary,
     target_input_final_numerical = convert_words_to_numerical_id(target_input_final, target_dictionary)
     target_output_final_numerical = convert_words_to_numerical_id(target_output_final, target_dictionary)
 
-    return source_final_numerical, target_input_final_numerical, target_output_final_numerical
+    data = {'X_in': source_final_numerical, 'y_in': target_input_final_numerical, 'y_out': target_output_final_numerical}
+    return data
 
 
 def pad_source_sentences(sentence, bucket_size):
@@ -115,11 +116,6 @@ def invert(dictionary):
 def convert_words_to_numerical_id(sentence_list, dictionary):
     out = []
     for sentence in sentence_list:
-        out.append([dictionary[word] if word in dictionary else dictionary['<UNK>'] for word in sentence.split()])
+        out.extend([dictionary[word] if word in dictionary else dictionary['<UNK>'] for word in sentence.split()])
 
-    return out
-
-def reset_graph(seed=42):
-    tf.reset_default_graph()
-    tf.set_random_seed(seed)
-    np.random.seed(seed)
+    return np.asarray(out)
