@@ -17,7 +17,10 @@ def process_data(args):
     bucket_dict = create_bucket_dict(source_clean, target_clean)
     data = add_tokens_to_text(source_clean, target_clean, bucket_dict, source_dictionary, target_dictionary)
     data['source_vocabulary'] = source_vocabulary
+    data['source_dictionary'] = source_dictionary
     data['target_vocabulary'] = target_vocabulary
+    data['target_dictionary'] = target_dictionary
+    data['bucket_dictionary'] = bucket_dict
     return data
 
 
@@ -116,6 +119,5 @@ def invert(dictionary):
 def convert_words_to_numerical_id(sentence_list, dictionary):
     out = []
     for sentence in sentence_list:
-        out.extend([dictionary[word] if word in dictionary else dictionary['<UNK>'] for word in sentence.split()])
-
-    return np.asarray(out)
+        out.append([dictionary[word] if word in dictionary else dictionary['<UNK>'] for word in sentence.split()])
+    return out

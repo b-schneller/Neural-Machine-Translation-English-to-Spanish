@@ -5,14 +5,9 @@ import numpy as np
 
 
 class Embedding_model:
-    def __init__(self, args, data):
+    def __init__(self, args):
         self.args = args
-        self.source_vocabulary = data['source_vocabulary']
-        self.target_vocabulary = data['target_vocabulary']
-        self.source_numerical_id = data['X_in']
-        self.target_numerical_id = data['y_in']
         self.build_embedding_graph()
-
 
     def build_embedding_graph(self):
 
@@ -61,10 +56,11 @@ class Embedding_model:
         self.valid_embeddings = tf.nn.embedding_lookup(self.normalized_embeddings, self.valid_dataset)
         self.similarity = tf.matmul(self.valid_embeddings, self.normalized_embeddings, transpose_b=True)
 
-
     def train(self, numerical_id):
         num_steps = 50001
         data_index = 0
+
+        numerical_id = [word for sentence in numerical_id for word in sentence]
 
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
@@ -85,15 +81,13 @@ class Embedding_model:
 
             if step % 10000 == 0:
                 if step > 0:
-                    average_loss /= 2000
+                    average_loss /= 10000
                 # The average loss is an estimate of the loss over the last 2000 batches.
                 print("Average loss at step ", step, ": ", average_loss)
                 average_loss = 0
 
         embeddings = self.sess.run(self.normalized_embeddings)
         return embeddings
-
-
 
     def generate_batch(self, numerical_id, data_index):
         # borrowed from https://github.com/ageron/handson-ml/blob/master/14_recurrent_neural_networks.ipynb
