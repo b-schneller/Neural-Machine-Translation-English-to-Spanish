@@ -1,9 +1,11 @@
 from data_preprocessing import process_data
 from make_dataset import make_dataset
 from embedding_generator import Embedding_model
+from train import Train
 import argparse
 import sys
 import numpy as np
+import pickle
 import os
 
 def main(argv):
@@ -61,10 +63,18 @@ def main(argv):
         data = process_data(args)
 
     if args.generate_embeddings:
-        embed_model = Embedding_model(args, data)
+        embed_model = Embedding_model(args)
         data['source_embeddings'] = embed_model.train(data['X_in'])
         data['target_embeddings'] = embed_model.train(data['y_in'])
-        np.savez('nmt_data', data)
+        with open('data_processed.pickle', 'wb') as f:
+            pickle.dump(data, f)
+
+    if args.train:
+        with open('data_processed.pickle', 'rb') as f:
+            data = pickle.load(f)
+        training_model = Train(args, data)
+        training_model.train()
+
 
 if __name__ == '__main__':
     main(sys.argv)
