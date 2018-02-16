@@ -10,25 +10,50 @@ class Train:
         self.build_training_graph()
 
     def train(self):
-
+        source_reversed_lookup_dict = {v: k for k, v in self.data['source_dictionary'].items()}
+        target_reversed_lookup_dict = {v: k for k, v in self.data['target_dictionary'].items()}
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
         bucket_keys = list(self.data['bucket_dictionary'].keys())
-        batch_size = 50
+        batch_size = self.args.batch_size
         n_epochs = self.args.n_epochs
 
         for epoch in range(n_epochs):
+            # shuffle indices in each bucket
+            source_eval_sentences, target_eval_sentences = self.get_batch(0, self.data['bucket_dictionary'][10], batch_size, loss_eval=True)
+            X_in_eval, y_in_eval, y_target_one_hot_eval = self.get_batch(0, self.data['bucket_dictionary'][10], batch_size)
+            eval_feed_dict = {self.X: X_in_eval,
+                              self.y_in: y_in_eval,
+                              self.y_target_one_hot: y_target_one_hot_eval}
+            for bucket in bucket_keys:
+                shuffle(self.data['bucket_dictionary'][bucket])
+            # shuffle buckets
+            shuffle(bucket_keys)
             for bucket in bucket_keys:
                 bucket_indices = self.data['bucket_dictionary'][bucket]
                 for iteration in range(0, len(bucket_indices) // batch_size):
-                    print(iteration)
                     X_in_batch, y_in_batch, y_out_one_hot_batch = self.get_batch(iteration, bucket_indices, batch_size)
                     feed_dict = {self.X: X_in_batch,
                                  self.y_in: y_in_batch,
                                  self.y_target_one_hot: y_out_one_hot_batch}#,
                                  # self.sequence_lengths: sequence_lengths}
                     self.sess.run(self.training_op, feed_dict=feed_dict)
+
+                epoch_loss = self.sess.run(self.loss, feed_dict=eval_feed_dict)
+                print('Epoch: ', epoch, 'Bucket: ', bucket, ' Total Eval Loss: ', epoch_loss)
+                eval_output = self.sess.run(self.outputs, feed_dict=eval_feed_dict)
+                eval_output = np.argmax(eval_output, axis=2)
+                num_lines = 10
+                counter = 0
+                for x_in, y_target, output in zip(source_eval_sentences, target_eval_sentences, eval_output):
+                    if counter < num_lines:
+                        print()
+                        print('ENG\t\t',[source_reversed_lookup_dict[word] for word in x_in])
+                        print('SPAN_target\t',[target_reversed_lookup_dict[word] for word in y_target])
+                        print('SPAN_out\t',[target_reversed_lookup_dict[i] for i in output])
+                        print()
+                        counter += 1
 
     def build_training_graph(self):
         batch_size = self.args.batch_size
@@ -63,7 +88,7 @@ class Train:
         self.optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
         self.training_op = self.optimizer.minimize(self.loss)
 
-    def get_batch(self, iteration, indices, batch_size): # < ----- Needs work
+    def get_batch(self, iteration, indices, batch_size, loss_eval=False): # < ----- Needs work
         begin = iteration * batch_size
         end = (iteration + 1) * batch_size
         extraction_indices = indices[begin:end]   # good to here
@@ -83,8 +108,11 @@ class Train:
 
 
         # sequence_lengths = np.array(y_out_batch_indices) != self.data['target_dictionary']['<PAD>']
+        if loss_eval:
+            return X_in_batch_indices, y_out_batch_indices
 
-        return X_in_batch, y_in_batch, y_out_one_hot
+        else:
+            return X_in_batch, y_in_batch, y_out_one_hot
 
     def save(self):
         pass
