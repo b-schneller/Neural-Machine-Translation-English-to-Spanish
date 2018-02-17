@@ -1,6 +1,9 @@
 import numpy as np
 import tensorflow as tf
+from datetime import datetime
 from random import shuffle
+import matplotlib.pyplot as plt
+import os
 
 
 class Train:
@@ -18,6 +21,8 @@ class Train:
         bucket_keys = list(self.data['bucket_dictionary'].keys())
         batch_size = self.args.batch_size
         n_epochs = self.args.n_epochs
+
+        loss_tracker = []
 
         for epoch in range(n_epochs):
             # shuffle indices in each bucket
@@ -55,11 +60,20 @@ class Train:
                         print()
                         counter += 1
 
+                loss_tracker.append(epoch_loss)
+                plt.plot(loss_tracker)
+                plt.xlabel('Epoch')
+                plt.ylabel('Eval Loss')
+                plt.show()
+
+            self.save(epoch)
+
     def build_training_graph(self):
         batch_size = self.args.batch_size
-        n_inputs = 150  # embedding vector length
-        n_neurons = 128  # whatever
-        vocab_size = 50000  # vocab size and length of one-hot vector
+        n_inputs = 150
+        n_neurons = 64
+        vocab_size = 50000
+        n_layers = 3
 
         self.X = tf.placeholder(tf.float32, [batch_size, None, n_inputs])  #
         self.y_in = tf.placeholder(tf.float32, [batch_size, None, n_inputs])
@@ -67,18 +81,26 @@ class Train:
         # self.sequence_lengths = tf.placeholder(tf.int32, [batch_size, None])
         # self.target_weights = tf.placeholder(tf.float32, [None])
 
-        self.lstm_cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_neurons)
 
-        # Encoder
-        _, self.state = tf.nn.dynamic_rnn(self.lstm_cell, self.X, dtype=tf.float32)
+       # Encoder
+        self.layers_encode = [tf.contrib.rnn.BasicLSTMCell(num_units=n_neurons, activation=tf.tanh)
+                  for layer in range(n_layers)]
+
+        self.multi_layer_cell_encode = tf.contrib.rnn.MultiRNNCell(self.layers_encode)
+
+        _, self.state = tf.nn.dynamic_rnn(self.multi_layer_cell_encode, self.X, dtype=tf.float32)
 
         # Decoder
-        self.output_cell = tf.contrib.rnn.OutputProjectionWrapper(tf.contrib.rnn.LSTMCell(num_units=n_neurons),
-                                                             output_size=vocab_size)
+        self.layers_decode = [tf.contrib.rnn.BasicLSTMCell(num_units=n_neurons, activation=tf.tanh)
+                              for layer in range(n_layers)]
 
-        self.outputs, _ = tf.nn.dynamic_rnn(self.output_cell, self.y_in, dtype=tf.float32)
+        self.multi_layer_cell_decode = tf.contrib.rnn.MultiRNNCell(self.layers_decode)
 
-        learning_rate = 0.001
+        self.output_cell = tf.contrib.rnn.OutputProjectionWrapper(self.multi_layer_cell_decode, output_size=vocab_size)
+
+        self.outputs, _ = tf.nn.dynamic_rnn(self.output_cell, self.y_in, initial_state=self.state, dtype=tf.float32)
+
+        learning_rate = self.args.learning_rate
 
         # self.cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.outputs, labels=self.y_target_one_hot)
         # self.truncated_cross_entropy = np.multiply(self.cross_entropy, self.sequence_lengths)
@@ -114,8 +136,12 @@ class Train:
         else:
             return X_in_batch, y_in_batch, y_out_one_hot
 
-    def save(self):
-        pass
+    def save(self, epoch):
+        print('[*] Saving checkpoint ....')
+        model_name = 'nmt_model_epoch_{}.ckpt'.format(epoch)
+        self.saver = tf.train.Saver()
+        save_path = self.saver.save(self.sess, os.path.join(self.args.saved_model_directory, model_name))
+        print('[*] Checkpoint saved in file {}'.format(save_path))
 
     def load(self):
         pass
