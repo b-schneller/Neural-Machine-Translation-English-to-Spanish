@@ -39,7 +39,9 @@ def main(argv):
 
     parser.add_argument('--learning_rate', type=float, default=0.001,
                         help='Optimizer learning rate')
-    parser.add_argument('--early_stopping_max_checks', type=int, default=20,
+    parser.add_argument('--max_gradient_norm', type=float, default=3,
+                        help='Maximum gradient norm for gradient clipping')
+    parser.add_argument('--early_stopping_max_checks', type=int, default=1,
                         help='Max checks without improvement for early stopping')
 
     parser.add_argument('--train', action='store_true', default=False,
