@@ -41,9 +41,7 @@ class Train:
                     X_in_batch, y_in_batch, y_out_one_hot_batch = self.get_batch(iteration, bucket_indices, batch_size)
                     feed_dict = {self.X: X_in_batch,
                                  self.y_in: y_in_batch,
-                                 self.y_target_one_hot: y_out_one_hot_batch,
-                                 self.sequence_length: bucket}#,
-                                 # self.sequence_lengths: sequence_lengths}
+                                 self.y_target_one_hot: y_out_one_hot_batch}
                     self.sess.run(self.training_op, feed_dict=feed_dict)
 
                 epoch_loss = self.sess.run(self.loss, feed_dict=eval_feed_dict)
@@ -71,16 +69,15 @@ class Train:
 
     def build_training_graph(self):
         batch_size = self.args.batch_size
-        n_inputs = 150
-        n_neurons = 128
-        vocab_size = 50000
-        n_layers = 2
+        n_inputs = self.args.embedding_size
+        n_neurons = self.args.n_neurons
+        vocab_size = self.args.vocabulary_size
+        n_layers = self.args.n_layers
 
         self.X = tf.placeholder(tf.float32, [batch_size, None, n_inputs])  #
         self.y_in = tf.placeholder(tf.float32, [batch_size, None, n_inputs])
         self.y_target_one_hot = tf.placeholder(tf.int32, [batch_size, None, vocab_size])
-        self.sequence_length = tf.placeholder(tf.float32, None)
-        # self.sequence_lengths = tf.placeholder(tf.int32, [batch_size, None])
+        # self.sequence_length = tf.placeholder(tf.float32, None)
         # self.target_weights = tf.placeholder(tf.float32, [None])
 
 
@@ -103,7 +100,7 @@ class Train:
         self.outputs, _ = tf.nn.dynamic_rnn(self.output_cell, self.y_in, initial_state=self.state, dtype=tf.float32)
 
         self.cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.outputs, labels=self.y_target_one_hot)
-        self.loss = tf.reduce_mean(self.cross_entropy) / self.sequence_length * 10
+        self.loss = tf.reduce_mean(self.cross_entropy) #/ self.sequence_length * 10
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.args.learning_rate)
         self.grads_and_vars = self.optimizer.compute_gradients(self.loss)

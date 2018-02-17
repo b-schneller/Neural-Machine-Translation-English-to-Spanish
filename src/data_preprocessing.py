@@ -11,6 +11,7 @@ def process_data(args):
     target_fname = '../data/raw/europarl-v7.es-en.es'
     source_sentences = read_sentences_from_file(source_fname)
     target_sentences = read_sentences_from_file(target_fname)
+    source_sentences, target_sentences = remove_long_sentences(source_sentences, target_sentences)
     source_clean, target_clean = clean_sentence_lists(source_sentences, target_sentences)
     source_dictionary, source_vocabulary = build_vocabulary(source_clean)
     target_dictionary, target_vocabulary = build_vocabulary(target_clean)
@@ -23,6 +24,18 @@ def process_data(args):
     data['bucket_dictionary'] = bucket_dict
     return data
 
+
+def remove_long_sentences(source_sentences, target_sentences):
+    removal_indices = list()
+    for index, (source, target) in enumerate(zip(source_sentences, target_sentences)):
+        max_len = max(len(source.split()), len(target.split()))
+        if max_len >= 50:
+            removal_indices.append(index)
+    print('removal_indices', len(removal_indices))
+    for i in sorted(removal_indices, reverse=True):
+        del source_sentences[i]
+        del target_sentences[i]
+    return source_sentences, target_sentences
 
 def read_sentences_from_file(filename):
     with open(filename, 'r') as f:
@@ -63,14 +76,14 @@ def create_bucket_dict(eng_sentences, span_sentences):
         max_len = max(len(eng_sentence.split()), len(span_sentence.split()))
         rounded_max_len = roundup(max_len)
         sample_bucket_sizes.append(rounded_max_len)
-    for i in range(10, max(sample_bucket_sizes) + 1, 10):
+    for i in range(5, max(sample_bucket_sizes) + 1, 5):
         bucket_dict[i] = create_buckets(sample_bucket_sizes, i)
 
     return bucket_dict
 
 
 def roundup(x):
-    return int(math.ceil((x + 1) / 10.0)) * 10  # x+1 to push *0 into next bucket to account for tokens
+    return int(math.ceil((x + 1) / 5.0)) * 5  # x+1 to push *0 into next bucket to account for tokens
 
 
 def create_buckets(buckets, bucket_len):
@@ -79,6 +92,7 @@ def create_buckets(buckets, bucket_len):
 
 def add_tokens_to_text(source_list, target_list, bucket_dict, source_dictionary, target_dictionary):
     number_of_samples = len(source_list)
+    print('n_samples', number_of_samples)
     source_final, target_input_final, target_output_final = [None] * number_of_samples, [None] * number_of_samples, [
         None] * number_of_samples
     inverse_bucket_dict = invert(bucket_dict)
@@ -119,5 +133,8 @@ def invert(dictionary):
 def convert_words_to_numerical_id(sentence_list, dictionary):
     out = []
     for sentence in sentence_list:
-        out.append([dictionary[word] if word in dictionary else dictionary['<UNK>'] for word in sentence.split()])
+        try:
+            out.append([dictionary[word] if word in dictionary else dictionary['<UNK>'] for word in sentence.split()])
+        except:
+            print(sentence)
     return out
