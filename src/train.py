@@ -13,24 +13,31 @@ class Train:
         self.build_training_graph()
 
     def train(self):
-        source_reversed_lookup_dict = {v: k for k, v in self.data['source_dictionary'].items()}
-        target_reversed_lookup_dict = {v: k for k, v in self.data['target_dictionary'].items()}
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
+        if self.args.load_checkpoint is not None:
+            self.load(self.args.load_checkpoint)
+
+        source_reversed_lookup_dict = {v: k for k, v in self.data['source_dictionary'].items()}
+        target_reversed_lookup_dict = {v: k for k, v in self.data['target_dictionary'].items()}
+
 
         bucket_keys = list(self.data['bucket_dictionary'].keys())
+
         batch_size = self.args.batch_size
         n_epochs = self.args.n_epochs
 
         loss_tracker = []
 
+        source_eval_sentences, target_eval_sentences = self.get_batch(0, self.data['bucket_dictionary'][5], batch_size,
+                                                                      loss_eval=True)
+        X_in_eval, y_in_eval, y_target_one_hot_eval = self.get_batch(0, self.data['bucket_dictionary'][5], batch_size)
+        eval_feed_dict = {self.X: X_in_eval,
+                          self.y_in: y_in_eval,
+                          self.y_target_one_hot: y_target_one_hot_eval}
+
         for epoch in range(n_epochs):
             # shuffle indices in each bucket
-            source_eval_sentences, target_eval_sentences = self.get_batch(0, self.data['bucket_dictionary'][10], batch_size, loss_eval=True)
-            X_in_eval, y_in_eval, y_target_one_hot_eval = self.get_batch(0, self.data['bucket_dictionary'][10], batch_size)
-            eval_feed_dict = {self.X: X_in_eval,
-                              self.y_in: y_in_eval,
-                              self.y_target_one_hot: y_target_one_hot_eval}
             for bucket in bucket_keys:
                 shuffle(self.data['bucket_dictionary'][bucket])
             # shuffle buckets
@@ -44,12 +51,17 @@ class Train:
                                  self.y_target_one_hot: y_out_one_hot_batch}
                     self.sess.run(self.training_op, feed_dict=feed_dict)
 
-                epoch_loss = self.sess.run(self.loss, feed_dict=eval_feed_dict)
-                print('Epoch: ', epoch, 'Bucket: ', bucket, ' Total Eval Loss: ', epoch_loss)
-                eval_output = self.sess.run(self.outputs, feed_dict=eval_feed_dict)
-                eval_output = np.argmax(eval_output, axis=2)
-                num_lines = 10
+                    if iteration % 500 == 0:
+                        eval_loss = self.sess.run(self.loss, feed_dict=eval_feed_dict)
+                        print('Epoch: %d, Bucket: %d, Iteration: %d/%d, Loss: %f' % (epoch, bucket, iteration,
+                                                                                     len(bucket_indices)//batch_size,
+                                                                                     eval_loss))
+                        eval_output = self.sess.run(self.outputs, feed_dict=eval_feed_dict)
+                        eval_output = np.argmax(eval_output, axis=2)
+                        loss_tracker.append(eval_loss)
+
                 counter = 0
+                num_lines = 30
                 for x_in, y_target, output in zip(source_eval_sentences, target_eval_sentences, eval_output):
                     if counter < num_lines:
                         print()
@@ -58,13 +70,6 @@ class Train:
                         print('SPAN_out\t',[target_reversed_lookup_dict[i] for i in output])
                         print()
                         counter += 1
-
-                loss_tracker.append(epoch_loss)
-                plt.plot(loss_tracker)
-                plt.xlabel('Epoch')
-                plt.ylabel('Eval Loss')
-                plt.show()
-
             self.save(epoch)
 
     def build_training_graph(self):
@@ -141,5 +146,7 @@ class Train:
         save_path = self.saver.save(self.sess, os.path.join(self.args.saved_model_directory, model_name))
         print('[*] Checkpoint saved in file {}'.format(save_path))
 
-    def load(self):
-        pass
+    def load(self, model_name):
+        print(" [*] Loading checkpoint...")
+        self.saver = tf.train.Saver()
+        self.saver.restore(self.sess, os.path.join(self.args.saved_model_directory, model_name))

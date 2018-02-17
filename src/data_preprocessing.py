@@ -31,7 +31,6 @@ def remove_long_sentences(source_sentences, target_sentences):
         max_len = max(len(source.split()), len(target.split()))
         if max_len >= 50:
             removal_indices.append(index)
-    print('removal_indices', len(removal_indices))
     for i in sorted(removal_indices, reverse=True):
         del source_sentences[i]
         del target_sentences[i]
@@ -92,7 +91,6 @@ def create_buckets(buckets, bucket_len):
 
 def add_tokens_to_text(source_list, target_list, bucket_dict, source_dictionary, target_dictionary):
     number_of_samples = len(source_list)
-    print('n_samples', number_of_samples)
     source_final, target_input_final, target_output_final = [None] * number_of_samples, [None] * number_of_samples, [
         None] * number_of_samples
     inverse_bucket_dict = invert(bucket_dict)
@@ -133,8 +131,5 @@ def invert(dictionary):
 def convert_words_to_numerical_id(sentence_list, dictionary):
     out = []
     for sentence in sentence_list:
-        try:
-            out.append([dictionary[word] if word in dictionary else dictionary['<UNK>'] for word in sentence.split()])
-        except:
-            print(sentence)
+        out.append([dictionary[word] if word in dictionary else dictionary['<UNK>'] for word in sentence.split()])
     return out
