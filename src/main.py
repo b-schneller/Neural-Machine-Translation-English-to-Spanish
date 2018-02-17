@@ -29,10 +29,16 @@ def main(argv):
     parser.add_argument('--vocabulary_size', type=int, default=50000,
                         help='Number of unique words in vocabulary')
 
-    parser.add_argument('--batch_size', type=int, default=50,
+    parser.add_argument('--batch_size', type=int, default=80,
                         help='Batch size for training and evaluation.')
-    parser.add_argument('--n_epochs', type=int, default=1000,
+    parser.add_argument('--n_epochs', type=int, default=10,
                         help='Number of training epochs')
+
+    parser.add_argument('--n_neurons', type=int, default=128,
+                        help='Number of neurons per RNN layer')
+    parser.add_argument('--n_layers', type=int, default=2,
+                        help='Number of layers for RNN')
+
 
     parser.add_argument('--saved_model_directory', default='../models/',
                         help='Directory for saving trained models')
@@ -51,6 +57,7 @@ def main(argv):
                         help='Set to True to conduct inference on Test images. Trained model must be loaded.')
     parser.add_argument('--load_checkpoint', type=str, default=None,
                         help='Load saved checkpoint, arg=checkpoint_name')
+
 
     args = parser.parse_args()
 
