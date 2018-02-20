@@ -45,16 +45,20 @@ def main(argv):
 
     parser.add_argument('--learning_rate', type=float, default=0.001,
                         help='Optimizer learning rate')
-    parser.add_argument('--max_gradient_norm', type=float, default=3,
+    parser.add_argument('--max_gradient_norm', type=float, default=1,
                         help='Maximum gradient norm for gradient clipping')
     parser.add_argument('--early_stopping_max_checks', type=int, default=1,
                         help='Max checks without improvement for early stopping')
 
     parser.add_argument('--train', action='store_true', default=False,
-                        help='Set to True to train network')
+                        help='Call to train network')
 
     parser.add_argument('--infer', action='store_true', default=False,
-                        help='Set to True to conduct inference on Test images. Trained model must be loaded.')
+                        help='Call to translate and input sentence')
+    parser.add_argument('--input_sentence', type=str, default=None,
+                        help='English input string to convert to Spanish')
+
+
     parser.add_argument('--load_checkpoint', type=str, default=None,
                         help='Load saved checkpoint, arg=checkpoint_name')
 
@@ -83,6 +87,13 @@ def main(argv):
             data = pickle.load(f)
         training_model = Train(args, data)
         training_model.train()
+
+    if args.infer:
+        args.batch_size = 1
+        with open('data_processed.pickle', 'rb') as f:
+            data = pickle.load(f)
+        infer_model = Train(args, data)
+        infer_model.infer()
 
 
 if __name__ == '__main__':
