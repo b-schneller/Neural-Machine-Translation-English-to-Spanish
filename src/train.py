@@ -1,10 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from datetime import datetime
 from random import shuffle
-import matplotlib.pyplot as plt
 import os
-
 
 class Train:
     def __init__(self, args, data):
@@ -67,16 +64,17 @@ class Train:
                     for x_in, y_target, output in zip(source_eval_sentences, target_eval_sentences, eval_output):
                         if counter < num_lines:
                             print()
-                            print('ENG\t\t',[self.source_reversed_lookup_dict[word] for word in x_in])
-                            print('SPAN_target\t',[self.target_reversed_lookup_dict[word] for word in y_target])
-                            print('SPAN_out\t',[self.target_reversed_lookup_dict[i] for i in output])
+                            print('ENG\t\t', ' '.join([self.source_reversed_lookup_dict[word] for word in x_in]))
+                            print('SPAN_target\t', ' '.join([self.target_reversed_lookup_dict[word] for word in y_target]))
+                            print('SPAN_out\t', ' '.join([self.target_reversed_lookup_dict[i] for i in output]))
                             print()
                             counter += 1
                 self.save(epoch)
 
     def infer(self):
         input_sentence = self.args.input_sentence
-        numerical_id_sentence = [self.data['source_dictionary'][i] for i in input_sentence.split()]
+        numerical_id_sentence = [self.data['source_dictionary'][i] if i in self.data['source_dictionary']
+                                 else self.data['source_dictionary']['<UNK>'] for i in input_sentence.split()][::-1]
         source_input = np.array([self.data['source_embeddings'][i] for i in numerical_id_sentence])
         translation = list()
         with tf.Session() as self.sess:
@@ -91,7 +89,6 @@ class Train:
 
             encoding_state = self.sess.run(self.state, feed_dict={self.X: source_input[np.newaxis, :]})
 
-
             while True:
                 next_word, next_state = self.sess.run([self.outputs, self.output_state], feed_dict={self.X: source_input[np.newaxis, :],
                                                                                                     self.y_in: translation_input[np.newaxis, np.newaxis, :],
@@ -105,9 +102,6 @@ class Train:
                     print(' '.join([self.target_reversed_lookup_dict[i] for i in translation]))
                     break
                 print('nw:', np.argmax(next_word, axis=2))
-                # print('ns:', next_state)
-
-                # break
 
     def build_training_graph(self):
         batch_size = self.args.batch_size
@@ -175,11 +169,8 @@ class Train:
             for col, word in enumerate(sentence):
                 y_out_one_hot[row, col, word] = 1
 
-
-        # sequence_lengths = np.array(y_out_batch_indices) != self.data['target_dictionary']['<PAD>']
         if loss_eval:
             return X_in_batch_indices, y_out_batch_indices
-
         else:
             return X_in_batch, y_in_batch, y_out_one_hot
 
