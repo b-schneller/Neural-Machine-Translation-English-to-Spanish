@@ -22,6 +22,8 @@ def process_data(args):
     data['target_vocabulary'] = target_vocabulary
     data['target_dictionary'] = target_dictionary
     data['bucket_dictionary'] = bucket_dict
+    data['source_reverse_dictionary'] = {num_id: word for word, num_id in source_dictionary.items()}
+    data['target_reverse_dictionary'] = {num_id: word for word, num_id in target_dictionary.items()}
     return data
 
 
@@ -102,7 +104,7 @@ def add_tokens_to_text(source_list, target_list, bucket_dict, source_dictionary,
     target_input_final_numerical = convert_words_to_numerical_id(target_input_final, target_dictionary)
     target_output_final_numerical = convert_words_to_numerical_id(target_output_final, target_dictionary)
 
-    data = {'X_in': source_final_numerical, 'y_in': target_input_final_numerical, 'y_out': target_output_final_numerical}
+    data = {'source_input': source_final_numerical, 'target_input': target_input_final_numerical, 'target_output': target_output_final_numerical}
     return data
 
 

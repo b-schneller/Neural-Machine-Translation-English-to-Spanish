@@ -1,7 +1,7 @@
 from data_preprocessing import process_data
 from make_dataset import make_dataset
 from embedding_generator import Embedding_model
-from train import Train
+from model import NMT_Model
 import argparse
 import sys
 import numpy as np
@@ -85,15 +85,15 @@ def main(argv):
     if args.train:
         with open('data_processed.pickle', 'rb') as f:
             data = pickle.load(f)
-        training_model = Train(args, data)
-        training_model.train()
+        model = NMT_Model(args, data)
+        model.train()
 
     if args.infer:
         args.batch_size = 1
         with open('data_processed.pickle', 'rb') as f:
             data = pickle.load(f)
-        infer_model = Train(args, data)
-        infer_model.infer()
+        model = NMT_Model()
+        model.infer(args)
 
 
 if __name__ == '__main__':
