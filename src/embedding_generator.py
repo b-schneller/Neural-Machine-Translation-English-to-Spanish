@@ -5,6 +5,7 @@ import numpy as np
 
 
 class Embedding_model:
+    # borrowed from https://github.com/ageron/handson-ml/blob/master/14_recurrent_neural_networks.ipynb
     def __init__(self, args):
         self.args = args
         self.build_embedding_graph()
@@ -90,7 +91,7 @@ class Embedding_model:
         return embeddings
 
     def generate_batch(self, numerical_id, data_index):
-        # borrowed from https://github.com/ageron/handson-ml/blob/master/14_recurrent_neural_networks.ipynb
+
         skip_window = 1
         num_skips = 2
         batch_size = 128

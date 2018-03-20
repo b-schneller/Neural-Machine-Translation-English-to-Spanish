@@ -4,12 +4,10 @@ from embedding_generator import Embedding_model
 from model import NMT_Model
 import argparse
 import sys
-import numpy as np
 import pickle
 import os
 
 def main(argv):
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--download_data', action='store_true', default=False,
@@ -34,11 +32,10 @@ def main(argv):
     parser.add_argument('--n_epochs', type=int, default=10,
                         help='Number of training epochs')
 
-    parser.add_argument('--n_neurons', type=int, default=128,
+    parser.add_argument('--n_neurons', type=int, default=256,
                         help='Number of neurons per RNN layer')
     parser.add_argument('--n_layers', type=int, default=2,
                         help='Number of layers for RNN')
-
 
     parser.add_argument('--saved_model_directory', default='../models/',
                         help='Directory for saving trained models')
@@ -57,11 +54,11 @@ def main(argv):
                         help='Call to translate and input sentence')
     parser.add_argument('--input_sentence', type=str, default=None,
                         help='English input string to convert to Spanish')
-
+    parser.add_argument('--beam_width', type=int, default=2,
+                        help='Width of search area for beam search')
 
     parser.add_argument('--load_checkpoint', type=str, default=None,
                         help='Load saved checkpoint, arg=checkpoint_name')
-
 
     args = parser.parse_args()
 
@@ -77,8 +74,8 @@ def main(argv):
 
     if args.generate_embeddings:
         embed_model = Embedding_model(args)
-        data['source_embeddings'] = embed_model.train(data['X_in'])
-        data['target_embeddings'] = embed_model.train(data['y_in'])
+        data['source_embeddings'] = embed_model.train(data['source_input'])
+        data['target_embeddings'] = embed_model.train(data['target_input'])
         with open('data_processed.pickle', 'wb') as f:
             pickle.dump(data, f)
 
@@ -92,8 +89,8 @@ def main(argv):
         args.batch_size = 1
         with open('data_processed.pickle', 'rb') as f:
             data = pickle.load(f)
-        model = NMT_Model()
-        model.infer(args)
+        model = NMT_Model(args, data)
+        model.infer()
 
 
 if __name__ == '__main__':

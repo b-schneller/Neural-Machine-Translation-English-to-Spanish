@@ -1,5 +1,3 @@
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
 from collections import Counter
 import string
@@ -43,6 +41,7 @@ def read_sentences_from_file(filename):
         content = f.readlines()
         content = [line.strip('\n') for line in content]
     return content
+
 
 def clean_sentence_lists(source_list, target_list, max_len=64):
     source_clean, target_clean = list(), list()

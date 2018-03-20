@@ -1,8 +1,8 @@
 import numpy as np
 import tensorflow as tf
 from random import shuffle
-import heapq
 import os
+
 
 class NMT_Model:
     def __init__(self, args, data):
@@ -35,37 +35,39 @@ class NMT_Model:
         l = tf.unstack(self.infer_state, axis=0)
         self.inference_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(l[idx][0], l[idx][1]) for idx in range(n_layers)])
 
-        # Encoder
-        self.layers_encode = [tf.contrib.rnn.BasicLSTMCell(num_units=n_neurons, activation=tf.tanh)
-                  for layer in range(n_layers)]
+        with tf.name_scope('Encoder'):
+            self.layers_encode = [tf.contrib.rnn.BasicLSTMCell(num_units=n_neurons, activation=tf.tanh)
+                      for layer in range(n_layers)]
 
-        self.multi_layer_cell_encode = tf.contrib.rnn.MultiRNNCell(self.layers_encode, state_is_tuple=True)
+            self.multi_layer_cell_encode = tf.contrib.rnn.MultiRNNCell(self.layers_encode, state_is_tuple=True)
 
-        self.encoder_outputs, self.encoder_state = tf.nn.dynamic_rnn(self.multi_layer_cell_encode, self.X, dtype=tf.float32)
+            self.encoder_outputs, self.encoder_state = tf.nn.dynamic_rnn(self.multi_layer_cell_encode, self.X, dtype=tf.float32)
 
+        with tf.name_scop('Decocer'):
+            self.layers_decode = [tf.contrib.rnn.BasicLSTMCell(num_units=n_neurons, activation=tf.tanh)
+                                  for layer in range(n_layers)]
 
-        # Decoder
-
-        self.layers_decode = [tf.contrib.rnn.BasicLSTMCell(num_units=n_neurons, activation=tf.tanh)
-                              for layer in range(n_layers)]
-
-        self.multi_layer_cell_decode = tf.contrib.rnn.MultiRNNCell(self.layers_decode, state_is_tuple=True)
+            self.multi_layer_cell_decode = tf.contrib.rnn.MultiRNNCell(self.layers_decode, state_is_tuple=True)
 
 
-        self.output_cell = tf.contrib.rnn.OutputProjectionWrapper(self.multi_layer_cell_decode, output_size=vocab_size)
+            self.output_cell = tf.contrib.rnn.OutputProjectionWrapper(self.multi_layer_cell_decode, output_size=vocab_size)
 
-        self.decoder_output, self.output_state = tf.cond(self.inference_bool,
-                                                  lambda: tf.nn.dynamic_rnn(self.output_cell, self.y_in, initial_state=self.inference_state, dtype=tf.float32),
-                                                  lambda: tf.nn.dynamic_rnn(self.output_cell, self.y_in, initial_state=self.encoder_state, dtype=tf.float32))
+            self.decoder_output, self.output_state = tf.cond(self.inference_bool,
+                                                      lambda: tf.nn.dynamic_rnn(self.output_cell, self.y_in, initial_state=self.inference_state, dtype=tf.float32),
+                                                      lambda: tf.nn.dynamic_rnn(self.output_cell, self.y_in, initial_state=self.encoder_state, dtype=tf.float32))
 
-        self.cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.decoder_output, labels=self.y_target_one_hot)
-        self.loss = tf.reduce_mean(self.cross_entropy)
+            self.softmax_output = tf.nn.softmax(self.decoder_output) # needed for inference
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.args.learning_rate)
-        self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
-        self.clipped_grads_and_vars = [(tf.clip_by_value(grad, -self.args.max_gradient_norm, self.args.max_gradient_norm),
-                                        var) for grad, var in self.grads_and_vars]
-        self.training_op = self.optimizer.apply_gradients(self.clipped_grads_and_vars)
+        with tf.name_scope('Loss'):
+            self.cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.decoder_output, labels=self.y_target_one_hot)
+            self.loss = tf.reduce_mean(self.cross_entropy)
+
+        with tf.name_scope('Train'):
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.args.learning_rate)
+            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
+            self.clipped_grads_and_vars = [(tf.clip_by_value(grad, -self.args.max_gradient_norm, self.args.max_gradient_norm),
+                                            var) for grad, var in self.grads_and_vars]
+            self.training_op = self.optimizer.apply_gradients(self.clipped_grads_and_vars)
 
     def train(self):
         with tf.Session() as self.sess:
@@ -104,33 +106,17 @@ class NMT_Model:
     def evaluate(self, epoch, bucket, iteration, bucket_indices):
         batch_size = self.args.batch_size
 
-        source_eval_sentences, target_eval_sentences = self.get_batch(0, self.bucket_dictionary[15], batch_size,
-                                                                      loss_eval=True)
         X_in_eval, y_in_eval, y_target_one_hot_eval = self.get_batch(0, self.bucket_dictionary[15], batch_size)
         eval_feed_dict = {self.X: X_in_eval,
                           self.y_in: y_in_eval,
                           self.y_target_one_hot: y_target_one_hot_eval,
                           self.inference_bool: False,
-                          self.infer_state: np.zeros((self.args.n_layers, 2, self.args.batch_size, 128))}
+                          self.infer_state: np.zeros((self.args.n_layers, 2, self.args.batch_size, self.args.n_neurons))}
 
         eval_loss = self.sess.run(self.loss, feed_dict=eval_feed_dict)
         print('Epoch: %d, Bucket: %d, Iteration: %d/%d, Loss: %f' % (epoch, bucket, iteration,
                                                                      len(bucket_indices) // batch_size,
                                                                      eval_loss))
-        eval_output = self.sess.run(self.decoder_output, feed_dict=eval_feed_dict)
-        eval_output = np.argmax(eval_output, axis=2)
-
-        counter = 0
-        num_lines = 30
-        for x_in, y_target, output in zip(source_eval_sentences, target_eval_sentences, eval_output):
-            if counter < num_lines:
-                print()
-                print('ENG\t\t', ' '.join([self.source_reversed_lookup_dict[word] for word in x_in]))
-                print('SPAN_target\t', ' '.join([self.target_reversed_lookup_dict[word] for word in y_target]))
-                print('SPAN_out\t', ' '.join([self.target_reversed_lookup_dict[i] for i in output]))
-                print()
-                counter += 1
-
 
     def infer(self):
         input_sentence = self.args.input_sentence
@@ -153,9 +139,9 @@ class NMT_Model:
             while True:
                 next_word, next_state = self.sess.run([self.decoder_output, self.output_state],
                                                       feed_dict={self.X: source_input[np.newaxis, :],
-                                                                self.y_in: translation_input[np.newaxis, np.newaxis, :],
-                                                                self.inference_bool: True,
-                                                                self.infer_state: encoding_state})
+                                                                 self.y_in: translation_input[np.newaxis, np.newaxis,:],
+                                                                 self.inference_bool: True,
+                                                                 self.infer_state: encoding_state})
 
                 translation.append(np.argmax(next_word))
                 translation_input = self.target_embeddings[np.argmax(next_word)]
@@ -166,7 +152,6 @@ class NMT_Model:
 
     def beam_search(self, next_word):
         pass
-
 
     def get_batch(self, iteration, indices, batch_size, loss_eval=False):
         begin = iteration * batch_size
@@ -181,7 +166,7 @@ class NMT_Model:
 
         y_out_batch_indices = [self.target_output[i] for i in extraction_indices]
 
-        y_out_one_hot = np.zeros((batch_size, X_in_batch.shape[1], self.args.vocabulary_size))
+        y_out_one_hot = np.zeros((batch_size, X_in_batch.shape[1], self.args.vocabulary_size), dtype=np.int32)
         for row, sentence in enumerate(y_out_batch_indices):
             for col, word in enumerate(sentence):
                 y_out_one_hot[row, col, word] = 1
