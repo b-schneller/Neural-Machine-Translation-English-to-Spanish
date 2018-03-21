@@ -32,7 +32,7 @@ def main(argv):
     parser.add_argument('--n_epochs', type=int, default=10,
                         help='Number of training epochs')
 
-    parser.add_argument('--n_neurons', type=int, default=256,
+    parser.add_argument('--n_neurons', type=int, default=128,
                         help='Number of neurons per RNN layer')
     parser.add_argument('--n_layers', type=int, default=2,
                         help='Number of layers for RNN')

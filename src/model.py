@@ -43,7 +43,7 @@ class NMT_Model:
 
             self.encoder_outputs, self.encoder_state = tf.nn.dynamic_rnn(self.multi_layer_cell_encode, self.X, dtype=tf.float32)
 
-        with tf.name_scop('Decocer'):
+        with tf.name_scope('Decoder'):
             self.layers_decode = [tf.contrib.rnn.BasicLSTMCell(num_units=n_neurons, activation=tf.tanh)
                                   for layer in range(n_layers)]
 
