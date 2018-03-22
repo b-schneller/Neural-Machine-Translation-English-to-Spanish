@@ -1,2 +1,0 @@
-n_neurons = 256: final loss = 1.8888
-n_neurons = 128: final loss = 
